@@ -45,8 +45,8 @@
 
   function sectionOf(line) {
     const t = line.trim();
-    let m = /^\{(?:c|comment|ci|comment_italic|start_of_\w+|soc|sov|sob)\s*:?\s*(.*)\}$/i.exec(t);
-    if (m) return m[1] || null;
+    let m = /^\{\s*(?:comment_italic|comment|ci|c|start_of_\w+|soc|sov|sob)\s*(?::\s*(.*))?\}$/i.exec(t);
+    if (m) return (m[1] || '').trim() || null;
     m = /^\[([^\]]+)\]$/.exec(t);
     if (m && !isChordToken(m[1].trim())) return m[1].trim();
     m = /^([A-Za-zÇĞİÖŞÜçğıöşü][\wÇĞİÖŞÜçğıöşü .'-]{0,30}):$/.exec(t);

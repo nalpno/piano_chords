@@ -51,6 +51,7 @@
     style: 'classic', color: '#d32f2f', accidentals: 'auto', bass: true,
     instrument: 'piano', volume: 0.8, latch: true, octave: 4,
     showChart: true, inline: true, inlineScale: 0.45, transpose: 0, tab: 'keyboard',
+    midiRes: 'beat', midiDetail: 'sevenths', midiSlash: true, midiBpl: 4,
   }, load(STORE.settings, {}));
   const saveSettings = () => store(STORE.settings, settings);
 
@@ -365,6 +366,7 @@
 
   // ---------- Tabs ----------
   function switchTab(name) {
+    if (name !== 'midi' && PC.MidiChords) PC.MidiChords.stop();
     settings.tab = name;
     saveSettings();
     document.querySelectorAll('.tab-btn').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
@@ -457,6 +459,21 @@
     update();
     renderLibrary();
     renderSong();
+    PC.MidiChords.refresh();
+  }
+
+  /** Replace the song chart text (used by the MIDI → Chords tab). */
+  function sendToSong(text, title) {
+    $('songTitle').value = title || '';
+    $('songText').value = text;
+    settings.transpose = 0;
+    $('trVal').textContent = '0';
+    saveSettings();
+    store(STORE.song, { title: $('songTitle').value, text });
+    switchTab('song');
+    renderSong();
+    toast(t('midiSent'));
+    $('songText').focus();
   }
 
   function init() {
@@ -596,8 +613,10 @@
     $('songPdf').addEventListener('click', () => $('songText').value.trim() &&
       run(() => X.pdf(S.sheetPages(currentSong(), resolveChord, songOpts(), false), songFileName())));
 
+    PC.MidiChords.init({ toast, pretty, resolveChord, saveSettings, sendToSong }, settings);
+
     const initialTab = (location.hash || '').slice(1);
-    switchTab(['keyboard', 'library', 'song'].includes(initialTab) ? initialTab : settings.tab || 'keyboard');
+    switchTab(['keyboard', 'library', 'midi', 'song'].includes(initialTab) ? initialTab : settings.tab || 'keyboard');
     applyLang(settings.lang);
     keyboard.scrollTo(60);
   }

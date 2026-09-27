@@ -28,6 +28,18 @@ The interface is available in **English** and **Turkish** (EN / TR switch in the
 - Export the whole library as a multi-page **PDF** or a single **PNG** sheet.
 - Back up or restore the library as JSON. It is also saved automatically in the browser (localStorage).
 
+### MIDI file → chords
+- Load a **MIDI file** (`.mid` / `.midi`) by dropping it on the page or choosing it. Type 0 and type 1 files are supported, including tempo and time-signature changes and the sustain pedal.
+- Choose which **tracks** to analyse. Drum tracks (channel 10) are skipped automatically. Deselecting a busy melody track often gives cleaner chords.
+- The **chord progression** is shown bar by bar and uses the same chord names as the rest of the app. The page also shows the estimated key, tempo, time signature and length.
+- Analysis options:
+  - how often chords may change (every beat, every half bar or once per bar);
+  - how much detail to use (triads, with 7ths, or extended 9/11/13 chords);
+  - whether to show slash chords.
+- Beats with only a few notes, like arpeggios and broken chords, are read together with the rest of their bar. Short passing melody notes don't produce extra chords.
+- **Play** the file with the built-in synth. The current chord is highlighted and the sounding notes are shown on a keyboard. Click any chord to hear it, or to jump to it while the file is playing.
+- **Send to Song Chart** turns the progression into a chord sheet (chords above empty lines, 2/4/8 bars per line). Type the lyrics on the empty lines and you have a finished chart. You can also **Copy as text**.
+
 ### Song chart
 Paste lyrics with chords in either of two formats:
 
@@ -72,6 +84,9 @@ js/midi.js          Web MIDI input
 js/diagram.js       Chord chart (SVG) renderer
 js/export.js        PNG / PDF export
 js/song.js          Song parser, on-screen sheet and export layout
+js/midifile.js      Standard MIDI File reader (and a small writer for the example)
+js/analysis.js      Key estimation and chord-progression analysis of MIDI files
+js/midichords.js    MIDI → Chords tab: tracks, bar grid, playback, export to song chart
 js/i18n.js          English / Turkish UI strings
 js/app.js           Application wiring and state
 vendor/             jsPDF 2.5.2 (MIT licence), bundled so PDF export works offline

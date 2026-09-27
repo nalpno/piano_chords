@@ -335,12 +335,23 @@
     return out;
   }
 
+  /** Re-spell a chord symbol with flats or sharps (e.g. to match a key). */
+  function respell(symbol, flats) {
+    const c = parse(symbol);
+    if (!c) return symbol;
+    const names = flats ? FLAT_NAMES : SHARP_NAMES;
+    let out = names[c.rootPc] + c.suffix;
+    if (c.bassPc !== null) out += '/' + names[c.bassPc];
+    return out;
+  }
+
   function isBlack(midi) { return [1, 3, 6, 8, 10].includes(mod12(midi)); }
 
   PC.Theory = {
     MIDI_MIN, MIDI_MAX, SHARP_NAMES, FLAT_NAMES,
     mod12, isBlack, midiName, rootName, labelNotes, chordName,
-    detect, parse, isChord, canonical, voicing, transposeSymbol,
+    detect, parse, isChord, canonical, voicing, transposeSymbol, respell, buildChord,
+    templateBySuffix: TEMPLATE_BY_SUFFIX,
     setAccidentalPref, getAccidentalPref,
     templates: TEMPLATES,
   };

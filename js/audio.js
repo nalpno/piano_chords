@@ -149,6 +149,35 @@
     });
   }
 
+  // ---------- Scheduled playback (MIDI files) ----------
+  let scheduled = [];
+
+  function now() {
+    return ensure() ? ctx.currentTime : 0;
+  }
+
+  /** Schedule one note at absolute AudioContext times. */
+  function scheduleNote(midi, velocity, start, end) {
+    if (!ensure()) return;
+    const v = startVoice(midi, velocity, Math.max(start, ctx.currentTime));
+    stopVoice(v, Math.max(end, start + 0.05));
+    scheduled.push({ v, end });
+    if (scheduled.length > 400) scheduled = scheduled.filter((s) => s.end > ctx.currentTime - 1);
+  }
+
+  function stopScheduled() {
+    if (!ctx) return;
+    scheduled.forEach((s) => {
+      try {
+        s.v.g.gain.cancelScheduledValues(0);
+        s.v.g.gain.setTargetAtTime(0, ctx.currentTime, 0.02);
+        s.v.osc.stop(ctx.currentTime + 0.1);
+        s.v.osc2.stop(ctx.currentTime + 0.1);
+      } catch (e) { /* not started or already stopped */ }
+    });
+    scheduled = [];
+  }
+
   function allOff() {
     if (!ctx) return;
     voices.forEach((v) => stopVoice(v, 0, true));
@@ -162,5 +191,8 @@
     if (master) master.gain.value = v;
   }
 
-  PC.Audio = { noteOn, noteOff, setSustain, playChord, allOff, setInstrument, setVolume, unlock: ensure };
+  PC.Audio = {
+    noteOn, noteOff, setSustain, playChord, allOff, setInstrument, setVolume, unlock: ensure,
+    now, scheduleNote, stopScheduled,
+  };
 })(window.PC = window.PC || {});

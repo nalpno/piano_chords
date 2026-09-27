@@ -17,6 +17,7 @@
     <nav class="tabs" role="tablist">
       <button type="button" class="tab-btn" data-tab="keyboard" data-i18n="tabKeyboard">Keyboard</button>
       <button type="button" class="tab-btn" data-tab="library"><span data-i18n="tabLibrary">Chord Library</span> <span id="libCount" class="badge">0</span></button>
+      <button type="button" class="tab-btn" data-tab="midi" data-i18n="tabMidi">MIDI → Chords</button>
       <button type="button" class="tab-btn" data-tab="song" data-i18n="tabSong">Song Chart</button>
     </nav>
     <div class="top-right">
@@ -117,6 +118,82 @@
       <div id="libGrid" class="lib-grid"></div>
     </section>
 
+    <!-- ============ MIDI FILE -> CHORDS ============ -->
+    <section id="tab-midi" class="tab-panel" hidden>
+      <div class="midi-top">
+        <label id="dropZone" class="drop-zone" for="midiFile">
+          <input type="file" id="midiFile" accept=".mid,.midi,.kar,.rmi,audio/midi,audio/x-midi" hidden>
+          <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><path fill="currentColor" d="M12 3l5 5h-3v6h-4V8H7l5-5zm-7 14h14v3H5v-3z"/></svg>
+          <span><b data-i18n="midiDrop">Drop a MIDI file here</b><br><span class="muted" data-i18n="midiDropSub">or click to choose a .mid file</span></span>
+        </label>
+        <div class="card midi-info">
+          <div class="card-label" data-i18n="midiFileInfo">File</div>
+          <div id="midiFileName" class="midi-file-name">—</div>
+          <div id="midiStats" class="midi-stats"></div>
+          <div class="btn-row">
+            <button type="button" id="midiExample" class="btn" data-i18n="midiExample">Load example</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="midiWork" hidden>
+        <div class="grid2 midi-controls">
+          <div class="card">
+            <div class="card-label" data-i18n="midiTracks">Tracks</div>
+            <div id="midiTracks" class="track-list"></div>
+          </div>
+          <div class="card">
+            <div class="card-label" data-i18n="midiAnalysis">Analysis</div>
+            <div class="settings">
+              <label><span data-i18n="midiResolution">Chord changes</span>
+                <select id="midiRes">
+                  <option value="beat" data-i18n="resBeat">Any beat</option>
+                  <option value="half" data-i18n="resHalf">Every half bar</option>
+                  <option value="bar" data-i18n="resBar">Once per bar</option>
+                </select>
+              </label>
+              <label><span data-i18n="midiDetail">Chord detail</span>
+                <select id="midiDetail">
+                  <option value="triads" data-i18n="detTriads">Triads only</option>
+                  <option value="sevenths" data-i18n="detSevenths">With 7ths</option>
+                  <option value="extended" data-i18n="detExtended">Extended (9, 11, 13)</option>
+                </select>
+              </label>
+              <label class="check"><input type="checkbox" id="midiSlash" checked> <span data-i18n="midiSlash">Slash chords (C/E)</span></label>
+              <label><span data-i18n="midiBarsPerLine">Bars per line</span>
+                <select id="midiBpl">
+                  <option value="2">2</option>
+                  <option value="4">4</option>
+                  <option value="8">8</option>
+                </select>
+              </label>
+            </div>
+            <div class="btn-row">
+              <button type="button" id="midiPlay" class="btn" data-i18n="midiPlay">Play</button>
+              <span id="midiTime" class="midi-time">0:00 / 0:00</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="piano-wrap mini" id="midiPiano"></div>
+
+        <div class="card progression-card">
+          <div class="prog-head">
+            <div>
+              <div class="card-label" data-i18n="midiProgression">Chord progression</div>
+              <div id="midiUsed" class="chips used-chips"></div>
+            </div>
+            <div class="btn-row">
+              <button type="button" id="midiCopy" class="btn" data-i18n="midiCopy">Copy as text</button>
+              <button type="button" id="midiToSong" class="btn primary" data-i18n="midiToSong">Send to Song Chart</button>
+            </div>
+          </div>
+          <p class="hint" data-i18n="midiGridHint"></p>
+          <div id="midiGrid" class="bar-grid"></div>
+        </div>
+      </div>
+    </section>
+
     <!-- ============ SONG ============ -->
     <section id="tab-song" class="tab-panel" hidden>
       <div class="song-layout">
@@ -165,6 +242,9 @@
   <script src="js/midi.js"></script>
   <script src="js/export.js"></script>
   <script src="js/song.js"></script>
+  <script src="js/midifile.js"></script>
+  <script src="js/analysis.js"></script>
+  <script src="js/midichords.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
