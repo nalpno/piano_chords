@@ -51,7 +51,7 @@
     style: 'classic', color: '#d32f2f', accidentals: 'auto', bass: true,
     instrument: 'piano', volume: 0.8, latch: true, octave: 4,
     showChart: true, inline: true, inlineScale: 0.45, transpose: 0, tab: 'keyboard',
-    midiRes: 'beat', midiDetail: 'sevenths', midiSlash: true, midiBpl: 4,
+    midiRes: 'beat', midiDetail: 'sevenths', midiSlash: true, midiBpl: 4, midiExact: true,
   }, load(STORE.settings, {}));
   const saveSettings = () => store(STORE.settings, settings);
 
@@ -314,12 +314,18 @@
   }
 
   // ---------- Song chart ----------
-  function resolveChord(name) {
+  /**
+   * Keys for a chord name: the song's own {voicing:} (e.g. taken from a MIDI
+   * file) first, then a library voicing, then a generated one.
+   */
+  function resolveChord(name, songVoicings) {
     const chord = T.parse(name);
     if (!chord) return null;
     const key = T.canonical(name);
+    const own = Object.keys(songVoicings || {}).find((n) => T.canonical(n) === key);
     const saved = library.find((e) => T.canonical(e.name) === key);
-    const notes = saved ? saved.notes.slice() : T.voicing(chord, { bass: settings.bass });
+    const notes = own ? songVoicings[own].slice()
+      : saved ? saved.notes.slice() : T.voicing(chord, { bass: settings.bass });
     return { name, display: name, notes, labels: T.labelNotes(notes, chord) };
   }
 
@@ -342,10 +348,7 @@
       return;
     }
     const song = currentSong();
-    sheet.innerHTML = S.renderHTML(song, (n) => {
-      const r = resolveChord(n);
-      return r && Object.assign({}, r, { display: r.display });
-    }, songOpts());
+    sheet.innerHTML = S.renderHTML(song, (n) => resolveChord(n, song.voicings), songOpts());
     // Pretty-print chord names on screen (SVG exports keep ASCII # and b).
     sheet.querySelectorAll('.seg-name').forEach((e) => { e.textContent = pretty(e.textContent); });
   }
@@ -605,13 +608,13 @@
     $('sheet').addEventListener('click', (e) => {
       const el = e.target.closest('[data-chord]');
       if (!el) return;
-      const r = resolveChord(el.dataset.chord);
+      const r = resolveChord(el.dataset.chord, currentSong().voicings);
       if (r) A.playChord(r.notes);
     });
     $('songPng').addEventListener('click', () => $('songText').value.trim() &&
-      run(() => X.png(S.sheetPages(currentSong(), resolveChord, songOpts(), true)[0], songFileName(), 2)));
+      run(() => { const song = currentSong(); return X.png(S.sheetPages(song, (n) => resolveChord(n, song.voicings), songOpts(), true)[0], songFileName(), 2); }));
     $('songPdf').addEventListener('click', () => $('songText').value.trim() &&
-      run(() => X.pdf(S.sheetPages(currentSong(), resolveChord, songOpts(), false), songFileName())));
+      run(() => { const song = currentSong(); return X.pdf(S.sheetPages(song, (n) => resolveChord(n, song.voicings), songOpts(), false), songFileName()); }));
 
     PC.MidiChords.init({ toast, pretty, resolveChord, saveSettings, sendToSong }, settings);
 

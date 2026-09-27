@@ -78,13 +78,26 @@
       return;
     }
     fileName = name.replace(/\.(mid|midi|kar|rmi)$/i, '');
-    selected = new Set(song.tracks.filter((tr) => tr.notes.length && !isDrumTrack(tr)).map((tr) => tr.index));
+    const pitched = song.tracks.filter((tr) => tr.notes.length && !isDrumTrack(tr));
+    // A single-note line in a high register is most likely the melody; leave it
+    // out by default so the chord voicings contain only the accompaniment.
+    const melodies = pitched.filter(isMelodyTrack);
+    selected = new Set(pitched.filter((tr) => melodies.length === pitched.length || !melodies.includes(tr)).map((tr) => tr.index));
     selectedSeg = null;
     $('midiWork').hidden = false;
     $('midiFileName').textContent = name;
     renderTracks();
     analyze();
     if (!song.tracks.some((tr) => tr.notes.length)) api.toast(t('midiNoNotes'));
+  }
+
+  function isMelodyTrack(tr) {
+    const notes = tr.notes;
+    if (notes.length < 4) return false;
+    let overlaps = 0;
+    for (let i = 1; i < notes.length; i++) if (notes[i].start < notes[i - 1].end - 10) overlaps++;
+    const avg = notes.reduce((sum, n) => sum + n.midi, 0) / notes.length;
+    return overlaps / notes.length < 0.15 && avg >= 60;
   }
 
   function isDrumTrack(tr) {
@@ -99,9 +112,12 @@
 
   // ---------- Analysis & rendering ----------
   function analyze() {
+    // In exact mode chord names come from the played notes, so "detail" doesn't apply.
+    $('midiDetail').disabled = settings.midiExact;
     if (!song) return;
     result = PC.Analysis.analyze(song, {
       tracks: selected, resolution: settings.midiRes, detail: settings.midiDetail, slash: settings.midiSlash,
+      exact: settings.midiExact,
     });
     renderStats();
     renderGrid();
@@ -143,7 +159,8 @@
       const name = tr.name || t('midiTrackN', { n: tr.index + 1 });
       const chans = tr.channels.map((c) => c + 1).join(', ');
       const info = document.createElement('span');
-      info.innerHTML = `<b>${PC.Diagram.esc(name)}</b> <span class="muted">· ${t('midiChannel')} ${chans} · ${tr.notes.length} ${t('midiNoteWord')}${drum ? ' · ' + t('midiDrums') : ''}</span>`;
+      const role = drum ? ' · ' + t('midiDrums') : isMelodyTrack(tr) ? ' · ' + t('midiMelody') : '';
+      info.innerHTML = `<b>${PC.Diagram.esc(name)}</b> <span class="muted">· ${t('midiChannel')} ${chans} · ${tr.notes.length} ${t('midiNoteWord')}${role}</span>`;
       label.append(cb, info);
       box.appendChild(label);
     });
@@ -161,6 +178,7 @@
       seen.add(s.name);
       used.push(s.name);
     });
+    const voicings = PC.Analysis.voicingsByName(result);
     const usedBox = $('midiUsed');
     usedBox.innerHTML = '';
     used.forEach((name) => {
@@ -168,7 +186,8 @@
       b.type = 'button';
       b.className = 'chip';
       b.textContent = api.pretty(name);
-      b.addEventListener('click', () => showChord(name));
+      b.title = voicingText(name, voicings[name]);
+      b.addEventListener('click', () => showChord(name, voicings[name]));
       usedBox.appendChild(b);
     });
 
@@ -189,7 +208,7 @@
         b.className = 'bar-chord' + (c.cont ? ' cont' : '') + (c.name === 'N.C.' ? ' nc' : '');
         b.style.flexGrow = c.beats;
         b.textContent = c.cont ? '–' : api.pretty(c.name);
-        b.title = api.pretty(c.name) + ' · ' + fmtTime(c.seg.startSec);
+        b.title = fmtTime(c.seg.startSec) + ' · ' + voicingText(c.name, c.seg.voicing);
         b.seg = c.seg;
         b.addEventListener('click', () => onChordClick(c.seg));
         row.appendChild(b);
@@ -203,13 +222,30 @@
     $('midiGrid').querySelectorAll('.bar-chord').forEach((b) => b.classList.toggle('now', b.seg === seg));
   }
 
-  function showChord(name) {
-    const r = api.resolveChord(name);
-    if (!r) return;
-    A.playChord(r.notes);
+  function voicingText(name, voicing) {
+    const label = api.pretty(name);
+    if (!voicing || !voicing.length) return label;
+    return label + ': ' + T.labelNotes(voicing, T.parse(name)).map(api.pretty).join(' ');
+  }
+
+  /** Play and show a chord: the exact MIDI voicing when known, else a generated one. */
+  function showChord(name, voicing) {
+    let notes;
+    let labels;
+    if (voicing && voicing.length) {
+      notes = voicing;
+      labels = T.labelNotes(voicing, T.parse(name));
+    } else {
+      const r = api.resolveChord(name);
+      if (!r) return;
+      notes = r.notes;
+      labels = r.labels;
+    }
+    A.playChord(notes);
     const lit = new Map();
-    r.notes.forEach((n, i) => lit.set(n, r.labels[i]));
+    notes.forEach((n, i) => lit.set(n, labels[i]));
     keyboard.render(new Set(), lit);
+    keyboard.scrollTo(Math.round((notes[0] + notes[notes.length - 1]) / 2));
   }
 
   function onChordClick(seg) {
@@ -219,7 +255,7 @@
       return;
     }
     highlight(seg);
-    if (seg.name !== 'N.C.') showChord(seg.name);
+    if (seg.name !== 'N.C.') showChord(seg.name, seg.voicing);
   }
 
   // ---------- Playback ----------
@@ -341,11 +377,13 @@
     $('midiRes').value = settings.midiRes;
     $('midiDetail').value = settings.midiDetail;
     $('midiSlash').checked = settings.midiSlash;
+    $('midiExact').checked = settings.midiExact;
     $('midiBpl').value = String(settings.midiBpl);
     const change = (key, value) => { settings[key] = value; api.saveSettings(); analyze(); };
     $('midiRes').addEventListener('change', (e) => change('midiRes', e.target.value));
     $('midiDetail').addEventListener('change', (e) => change('midiDetail', e.target.value));
     $('midiSlash').addEventListener('change', (e) => change('midiSlash', e.target.checked));
+    $('midiExact').addEventListener('change', (e) => change('midiExact', e.target.checked));
     $('midiBpl').addEventListener('change', (e) => { settings.midiBpl = Number(e.target.value); api.saveSettings(); if (result) renderGrid(); });
 
     $('midiPlay').addEventListener('click', () => {

@@ -117,7 +117,7 @@ svg.piano { display: block; width: 100%; min-width: 1100px; height: auto; touch-
 
 /* ---------- Song ---------- */
 .song-layout { display: grid; grid-template-columns: minmax(300px, 420px) 1fr; gap: 16px; align-items: start; }
-.editor textarea { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 13.5px; line-height: 1.45; resize: vertical; min-height: 280px; }
+.editor textarea { white-space: pre; overflow-x: auto; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 13.5px; line-height: 1.45; resize: vertical; min-height: 280px; }
 .transpose { display: inline-flex; align-items: center; gap: 6px; }
 .transpose b { min-width: 22px; text-align: center; }
 .sheet-card { min-height: 400px; }

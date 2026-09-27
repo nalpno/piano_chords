@@ -159,6 +159,7 @@
                   <option value="extended" data-i18n="detExtended">Extended (9, 11, 13)</option>
                 </select>
               </label>
+              <label class="check" data-i18n-title="midiExactHint"><input type="checkbox" id="midiExact" checked> <span data-i18n="midiExact">Exact voicing &amp; name from the MIDI</span></label>
               <label class="check"><input type="checkbox" id="midiSlash" checked> <span data-i18n="midiSlash">Slash chords (C/E)</span></label>
               <label><span data-i18n="midiBarsPerLine">Bars per line</span>
                 <select id="midiBpl">
@@ -204,7 +205,7 @@
           </label>
           <label class="field">
             <span data-i18n="songText">Lyrics &amp; chords</span>
-            <textarea id="songText" rows="18" spellcheck="false" data-i18n-placeholder="songPlaceholder"></textarea>
+            <textarea id="songText" rows="18" spellcheck="false" wrap="off" data-i18n-placeholder="songPlaceholder"></textarea>
           </label>
           <p class="hint" data-i18n="songHelp"></p>
           <div class="settings">

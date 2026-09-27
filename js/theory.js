@@ -72,7 +72,12 @@
   const TEMPLATES = TEMPLATE_DEFS.map(([suffix, ivs], index) => {
     const intervals = ivs.split(' ').map(parseInterval);
     const pcs = intervals.map((i) => i.semis % 12);
-    return { suffix, index, intervals, pcs, pcKey: [...pcs].sort((a, b) => a - b).join(',') };
+    // Tones that may be left out of a voicing without changing the chord's name.
+    const optional = [];
+    if (pcs.length >= 4 && intervals.some((i) => i.name === '5')) optional.push(7);
+    if (/(11|13)/.test(suffix) && intervals.some((i) => i.name === '9')) optional.push(2);
+    if (/13/.test(suffix) && intervals.some((i) => i.name === '11')) optional.push(5);
+    return { suffix, index, intervals, pcs, optional, pcKey: [...pcs].sort((a, b) => a - b).join(',') };
   });
   const TEMPLATE_BY_SUFFIX = {};
   TEMPLATES.forEach((t) => { TEMPLATE_BY_SUFFIX[t.suffix] = t; });
@@ -157,6 +162,15 @@
     return names[pc] + (Math.floor(midi / 12) - 1);
   }
 
+  /** "C#4" / "Bb3" / "Fbb2" -> MIDI note number (C4 = 60), or null. */
+  function noteToMidi(str) {
+    const m = /^([A-G])(##|bb|#|b|♯|♭)?(-?\d)$/.exec(String(str).trim());
+    if (!m) return null;
+    const n = parseNoteName(m[1] + (m[2] || ''));
+    const midi = (parseInt(m[3], 10) + 1) * 12 + LETTER_PC[n.letterIdx] + n.acc;
+    return midi >= 0 && midi <= 127 ? midi : null;
+  }
+
   function octaveFor(midi, acc) {
     return Math.floor((midi - acc) / 12) - 1;
   }
@@ -230,14 +244,19 @@
         let score = null;
         if (t.pcKey === key) {
           score = 100;
-        } else if (t.pcs.length >= 4 && t.pcs.includes(7) && !rel.includes(7)) {
-          // Same chord with the (perfect) fifth omitted.
-          const without5 = t.pcs.filter((p) => p !== 7).sort((a, b) => a - b).join(',');
-          if (without5 === key) score = 70;
+        } else if (t.optional.length) {
+          // Voicings often leave out the 5th (and the 9th/11th in 11 and 13
+          // chords): accept the chord when only optional tones are missing.
+          const missing = t.pcs.filter((p) => !rel.includes(p));
+          const extra = rel.filter((p) => !t.pcs.includes(p));
+          if (!extra.length && missing.length && missing.every((p) => t.optional.includes(p)) &&
+            t.pcs.length - missing.length >= 3) {
+            score = 100 - missing.length * (t.suffix.startsWith('6') || t.suffix.startsWith('m6') ? 30 : 12);
+          }
         }
         if (score === null) return;
-        score -= t.index * 0.1;
-        if (root === bassPc) score += 20;
+        score -= t.index * 0.05;
+        if (root === bassPc) score += 25;
         candidates.push({ score, chord: buildChord(root, t, bassPc) });
       });
     });
@@ -250,7 +269,51 @@
       seen.add(c.chord.name);
       list.push(c.chord);
     });
-    return { best: list[0] || null, alternatives: list.slice(1, 6), pcs };
+    let best = list[0] || null;
+    // No standard chord fits: name it as a chord plus one added tension.
+    if (!best && pcs.length >= 3) best = withTension(uniq, bassPc);
+    return { best, alternatives: list.slice(1, 6), pcs };
+  }
+
+  // Added tone names by semitones above the root, for names like "F#dim(maj7)".
+  const TENSION_BY_SEMIS = { 1: 'b9', 2: '9', 3: '#9', 4: '3', 5: '11', 6: '#11', 7: '5', 8: 'b13', 9: '13', 10: '7', 11: 'maj7' };
+  const TENSION_INTERVAL = { b9: 'b9', 9: '9', '#9': '#9', 3: '3', 11: '11', '#11': '#11', 5: '5', b13: 'b13', 13: '13', 7: 'b7', maj7: '7', b5: 'b5', '#5': '#5', 6: '6' };
+
+  /** Try every note as the "extra" tone; keep the bass note in the chord. */
+  function withTension(notes, bassPc) {
+    const pcsAll = [...new Set(notes.map(mod12))];
+    const tries = [];
+    pcsAll.forEach((x) => {
+      if (x === bassPc) return;
+      const rest = notes.filter((n) => mod12(n) !== x);
+      if (new Set(rest.map(mod12)).size < 3) return;
+      const det = detect(rest);
+      if (!det.best || !det.best.template || det.best.tension) return;
+      const c = det.best;
+      const name = c.rootName + c.suffix + '(' + TENSION_BY_SEMIS[mod12(x - c.rootPc)] + ')' + (c.bassName ? '/' + c.bassName : '');
+      const parsed = parse(name);
+      if (parsed) tries.push({ chord: parsed, rootIsBass: c.rootPc === bassPc, size: c.template.pcs.length });
+    });
+    tries.sort((a, b) => (b.rootIsBass - a.rootIsBass) || (a.size - b.size));
+    return tries.length ? tries[0].chord : null;
+  }
+
+  const tensionCache = {};
+  /** Template for "<suffix>(<tension>)", e.g. "dim(maj7)", "7(b13)". */
+  function tensionTemplate(rest) {
+    const m = /^(.*?)\((?:add)?(b9|#9|9|#11|11|b13|13|maj7|7|b5|#5|6|3|5)\)$/.exec(rest);
+    if (!m) return null;
+    const baseSuffix = Object.prototype.hasOwnProperty.call(SUFFIX_ALIASES, m[1]) ? SUFFIX_ALIASES[m[1]] : undefined;
+    if (baseSuffix === undefined) return null;
+    const suffix = baseSuffix + '(' + m[2] + ')';
+    if (!tensionCache[suffix]) {
+      const base = TEMPLATE_BY_SUFFIX[baseSuffix];
+      const extra = parseInterval(TENSION_INTERVAL[m[2]]);
+      const intervals = base.intervals.concat(base.pcs.includes(extra.semis % 12) ? [] : [extra]);
+      const pcs = intervals.map((i) => i.semis % 12);
+      tensionCache[suffix] = { suffix, index: 99, intervals, pcs, optional: [], tension: true, pcKey: [...pcs].sort((a, b) => a - b).join(',') };
+    }
+    return tensionCache[suffix];
   }
 
   /** Parse a chord symbol such as "F#m7b5", "Bb/D", "C6/9". */
@@ -275,10 +338,14 @@
       const stripped = rest.replace(/[()]/g, '');
       if (Object.prototype.hasOwnProperty.call(SUFFIX_ALIASES, stripped)) suffix = SUFFIX_ALIASES[stripped];
     }
-    if (suffix === undefined) return null;
-    const template = TEMPLATE_BY_SUFFIX[suffix];
+    let template = suffix === undefined ? null : TEMPLATE_BY_SUFFIX[suffix];
+    if (!template) {
+      template = tensionTemplate(rest);
+      if (!template) return null;
+      suffix = template.suffix;
+    }
     const root = parseNoteName(rootNm);
-    const chord = { rootPc: root.pc, rootName: root.name, suffix, template, bassPc: null, bassName: null };
+    const chord = { rootPc: root.pc, rootName: root.name, suffix, template, bassPc: null, bassName: null, tension: !!template.tension };
     if (bassNm) {
       const b = parseNoteName(bassNm);
       if (b.pc !== root.pc) {
@@ -349,7 +416,7 @@
 
   PC.Theory = {
     MIDI_MIN, MIDI_MAX, SHARP_NAMES, FLAT_NAMES,
-    mod12, isBlack, midiName, rootName, labelNotes, chordName,
+    mod12, isBlack, midiName, noteToMidi, rootName, labelNotes, chordName,
     detect, parse, isChord, canonical, voicing, transposeSymbol, respell, buildChord,
     templateBySuffix: TEMPLATE_BY_SUFFIX,
     setAccidentalPref, getAccidentalPref,

@@ -106,7 +106,7 @@
    * opts: { tracks: Set<index>, resolution: 'beat'|'half'|'bar', detail, slash }
    */
   function analyze(song, opts) {
-    const o = Object.assign({ resolution: 'beat', detail: 'sevenths', slash: true }, opts);
+    const o = Object.assign({ resolution: 'beat', detail: 'sevenths', slash: true, exact: true }, opts);
     const notes = [];
     song.tracks.forEach((tr) => {
       if (o.tracks && !o.tracks.has(tr.index)) return;
@@ -255,6 +255,23 @@
       r.chord = name;
     });
 
+    /** Notes held through the start of a segment (at most one bar is examined). */
+    function voicingFor(seg) {
+      const bar = bars[seg.bar];
+      const a = seg.start;
+      const b = Math.min(seg.end, seg.start + (bar.end - bar.start));
+      const span = b - a;
+      const over = [];
+      for (const n of notes) {
+        if (n.start >= b) break;
+        if (n.end > a) over.push({ midi: n.midi, ov: Math.min(n.end, b) - Math.max(n.start, a) });
+      }
+      let pick = over.filter((x) => x.ov >= 0.3 * span).map((x) => x.midi);
+      // Broken chords / arpeggios: short notes, so take everything played in the span.
+      if (new Set(pick.map((m) => m % 12)).size < 3) pick = over.map((x) => x.midi);
+      return [...new Set(pick)].sort((x, y) => x - y);
+    }
+
     // Merge equal neighbours into segments.
     const segments = [];
     results.forEach((r) => {
@@ -266,6 +283,25 @@
       }
       segments.push({ name, start: r.win.start, end: r.win.end, bar: r.win.bar, beat: r.win.beat, notes: r.notes || [] });
     });
+    // Exact mode: take the notes actually played for each chord and name the
+    // chord from that voicing (so Cmaj9, G13, D7#9/F# etc. come out as played).
+    if (o.exact) {
+      segments.forEach((seg) => {
+        if (seg.name === 'N.C.') { seg.voicing = []; return; }
+        seg.voicing = voicingFor(seg);
+        const name = nameVoicing(seg.voicing, o.slash, key);
+        if (name) seg.name = name;
+      });
+      for (let i = segments.length - 1; i > 0; i--) {
+        const a = segments[i - 1];
+        const b = segments[i];
+        if (a.name === b.name && a.end === b.start) {
+          a.end = b.end;
+          segments.splice(i, 1);
+        }
+      }
+    }
+
     // Drop leading / trailing silence.
     while (segments.length && segments[0].name === 'N.C.') segments.shift();
     while (segments.length && segments[segments.length - 1].name === 'N.C.') segments.pop();
@@ -286,6 +322,37 @@
       duration: toSec(endTick),
       noteCount: notes.length,
     };
+  }
+
+  /**
+   * Name a voicing exactly (all chord templates, extensions included). Notes
+   * that fit no standard chord are named as a chord plus a tension, e.g. C(b9).
+   */
+  function nameVoicing(voicing, slash, key) {
+    if (voicing.length < 2) return null;
+    const det = T.detect(voicing);
+    if (!det.best) return null;
+    const c = det.best;
+    let name = slash ? c.name : c.rootName + c.suffix;
+    if (key && key.flats !== null) name = T.respell(name, key.flats);
+    return name;
+  }
+
+  /** The most common voicing for each chord name in the result. */
+  function voicingsByName(result) {
+    const counts = {};
+    result.segments.forEach((s) => {
+      if (!s.voicing || !s.voicing.length) return;
+      const byName = counts[s.name] || (counts[s.name] = {});
+      const key = s.voicing.join(',');
+      byName[key] = (byName[key] || 0) + (s.end - s.start);
+    });
+    const out = {};
+    Object.keys(counts).forEach((name) => {
+      const best = Object.entries(counts[name]).sort((x, y) => y[1] - x[1])[0][0];
+      out[name] = best.split(',').map(Number);
+    });
+    return out;
   }
 
   /** Chords inside one bar (continuations from the previous bar are flagged). */
@@ -309,6 +376,11 @@
     const lines = [];
     if (o.title) lines.push(`{title: ${o.title}}`);
     if (result.key) lines.push(`{comment: Key ${result.key.name} · ${Math.round(result.tempo)} BPM · ${result.timeSig.num}/${result.timeSig.den}}`);
+    // Keep the voicings played in the MIDI file with the song.
+    const voicings = voicingsByName(result);
+    Object.keys(voicings).forEach((name) => {
+      lines.push(`{voicing: ${name} ${T.labelNotes(voicings[name], T.parse(name)).join(' ')}}`);
+    });
     lines.push('');
     const maxName = result.segments.reduce((m, s) => Math.max(m, s.name.length), 0);
     for (let i = 0; i < result.bars.length; i += o.barsPerLine) {
@@ -331,5 +403,5 @@
     return lines.join('\n').replace(/\n+$/, '\n');
   }
 
-  PC.Analysis = { analyze, chordsInBar, toSongText, estimateKey };
+  PC.Analysis = { analyze, chordsInBar, toSongText, estimateKey, voicingsByName };
 })(window.PC = window.PC || {});

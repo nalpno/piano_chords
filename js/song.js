@@ -25,7 +25,7 @@
     if (!toks.length) return false;
     let chords = 0;
     for (const t of toks) {
-      const bare = t.replace(/^\(|\)$/g, '');
+      const bare = t.replace(/^\((.*)\)$/, '$1');
       if (isChordToken(bare)) chords++;
       else if (!isFillerToken(t)) return false;
     }
@@ -37,7 +37,7 @@
     const re = /\S+/g;
     let m;
     while ((m = re.exec(line))) {
-      const bare = m[0].replace(/^\(|\)$/g, '');
+      const bare = m[0].replace(/^\((.*)\)$/, '$1');
       if (isChordToken(bare)) out.push({ col: m.index, chord: bare });
     }
     return out;
@@ -56,7 +56,7 @@
 
   /** Parse song text into { title, artist, lines[] }. */
   function parse(text) {
-    const song = { title: '', artist: '', lines: [] };
+    const song = { title: '', artist: '', lines: [], voicings: {} };
     const raw = String(text || '').replace(/\r\n?/g, '\n').split('\n');
     for (let i = 0; i < raw.length; i++) {
       const line = raw[i].replace(/\t/g, '    ');
@@ -65,6 +65,12 @@
       if ((m = /^\{\s*(title|t)\s*:\s*(.*)\}$/i.exec(trimmed))) { song.title = m[2].trim(); continue; }
       if ((m = /^\{\s*(artist|subtitle|st|a)\s*:\s*(.*)\}$/i.exec(trimmed))) { song.artist = m[2].trim(); continue; }
       if (/^\{\s*(end_of_\w+|eoc|eov|eob)\s*\}$/i.test(trimmed)) continue;
+      // {voicing: Cmaj9 C3 E4 G4 B4 D5} - exact keys for a chord in this song.
+      if ((m = /^\{\s*voicing\s*:\s*(\S+)\s+([^}]+)\}$/i.exec(trimmed))) {
+        const midis = m[2].trim().split(/\s+/).map(T.noteToMidi);
+        if (T.isChord(m[1]) && midis.length && midis.every((n) => n !== null)) song.voicings[m[1]] = midis.sort((a, b) => a - b);
+        continue;
+      }
       if (!trimmed) { song.lines.push({ type: 'empty' }); continue; }
       if (/^\{.*\}$/.test(trimmed) && !sectionOf(trimmed)) continue;
       const section = sectionOf(line);
@@ -115,7 +121,12 @@
 
   function transpose(song, semitones) {
     if (!semitones) return song;
+    const voicings = {};
+    Object.keys(song.voicings || {}).forEach((name) => {
+      voicings[T.transposeSymbol(name, semitones)] = song.voicings[name].map((n) => n + semitones);
+    });
     return Object.assign({}, song, {
+      voicings,
       lines: song.lines.map((l) => (l.type !== 'lyric' ? l : Object.assign({}, l, {
         segments: l.segments.map((s) => ({ chord: s.chord ? T.transposeSymbol(s.chord, semitones) : null, text: s.text })),
       }))),

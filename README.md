@@ -36,8 +36,10 @@ The interface is available in **English** and **Turkish** (EN / TR switch in the
   - how often chords may change (every beat, every half bar or once per bar);
   - how much detail to use (triads, with 7ths, or extended 9/11/13 chords);
   - whether to show slash chords.
+- **Exact voicing mode** (on by default) keeps the keys actually played in the file for every chord and names the chord from them. Complex chords such as Cmaj9, G13 (with or without 9th and 5th), Ebmaj7#11, Am11 or D7#9/F# keep their full names. Voicings that fit no standard chord are named as a chord plus an added tension, for example `F#dim(maj7)` or `C7(b13)`. A single-note melody track is left out by default so it doesn't end up in the voicings.
 - Beats with only a few notes, like arpeggios and broken chords, are read together with the rest of their bar. Short passing melody notes don't produce extra chords.
 - **Play** the file with the built-in synth. The current chord is highlighted and the sounding notes are shown on a keyboard. Click any chord to hear it, or to jump to it while the file is playing.
+- **Send to Song Chart** also writes a `{voicing: Cmaj9 C3 E4 G4 B4 D5}` line for each chord, so the song chart draws each chord exactly as it was played in the MIDI file. These lines can be edited by hand.
 - **Send to Song Chart** turns the progression into a chord sheet (chords above empty lines, 2/4/8 bars per line). Type the lyrics on the empty lines and you have a finished chart. You can also **Copy as text**.
 
 ### Song chart
@@ -60,7 +62,7 @@ The app produces:
 - a **chord chart** at the top listing every chord in the song, and
 - the lyrics with each **chord diagram placed exactly where the chord changes** (either can be switched off).
 
-Section headings (`[Chorus]`, `Verse 2:`, `{comment: Bridge}`) are recognised. The song can be **transposed**. If a chord is in your library, the sheet uses your saved voicing; otherwise it builds a standard voicing (bass note plus a close-position right-hand chord). The sheet exports to **PNG** or to a paginated A4 **PDF**.
+Section headings (`[Chorus]`, `Verse 2:`, `{comment: Bridge}`) are recognised. A `{voicing: <chord> <notes>}` line, such as `{voicing: G13 G2 F3 B3 E4}`, sets the exact keys used for that chord in the song. Chord names with an added tension in brackets, like `C7(b13)` or `Am(add9)`, are understood as well. The song can be **transposed**. If a chord is in your library, the sheet uses your saved voicing; otherwise it builds a standard voicing (bass note plus a close-position right-hand chord). The sheet exports to **PNG** or to a paginated A4 **PDF**.
 
 ## Getting started
 
