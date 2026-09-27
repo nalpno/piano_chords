@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Piano Chord Studio</title>
+  <meta name="description" content="88-key MIDI piano chord detector, chord chart generator and song chord sheet maker.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23222'/%3E%3Crect x='4' y='6' width='7' height='20' fill='%23fff'/%3E%3Crect x='12.5' y='6' width='7' height='20' fill='%23d32f2f'/%3E%3Crect x='21' y='6' width='7' height='20' fill='%23fff'/%3E%3Crect x='9' y='6' width='4.5' height='12' fill='%23222'/%3E%3Crect x='18.5' y='6' width='4.5' height='12' fill='%23222'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><rect width="32" height="32" rx="6" fill="#fff"/><rect x="4" y="6" width="7" height="20" fill="#fff" stroke="#222"/><rect x="12.5" y="6" width="7" height="20" fill="#d32f2f" stroke="#222"/><rect x="21" y="6" width="7" height="20" fill="#fff" stroke="#222"/><rect x="9" y="6" width="4.5" height="12" fill="#222"/><rect x="18.5" y="6" width="4.5" height="12" fill="#222"/></svg>
+      <span data-i18n="appTitle">Piano Chord Studio</span>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button type="button" class="tab-btn" data-tab="keyboard" data-i18n="tabKeyboard">Keyboard</button>
+      <button type="button" class="tab-btn" data-tab="library"><span data-i18n="tabLibrary">Chord Library</span> <span id="libCount" class="badge">0</span></button>
+      <button type="button" class="tab-btn" data-tab="song" data-i18n="tabSong">Song Chart</button>
+    </nav>
+    <div class="top-right">
+      <span id="midiStatus" class="midi-status"><span class="dot"></span><span class="txt"></span></span>
+      <div class="lang-switch" role="group" aria-label="Language">
+        <button type="button" data-lang="en">EN</button>
+        <button type="button" data-lang="tr">TR</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- ============ KEYBOARD ============ -->
+    <section id="tab-keyboard" class="tab-panel">
+      <div class="toolbar">
+        <label class="check" data-i18n-title="latchHint"><input type="checkbox" id="latch" checked> <span data-i18n="latch">Latch mouse clicks</span></label>
+        <button type="button" id="clearBtn" class="btn" data-i18n="clear">Clear</button>
+        <span class="sep"></span>
+        <label><span data-i18n="instrument">Sound</span>
+          <select id="instrument">
+            <option value="piano" data-i18n="instPiano">Piano</option>
+            <option value="epiano" data-i18n="instEpiano">Electric piano</option>
+            <option value="organ" data-i18n="instOrganSound">Organ</option>
+          </select>
+        </label>
+        <label><span data-i18n="volume">Volume</span> <input type="range" id="volume" min="0" max="1" step="0.05" value="0.8"></label>
+        <span class="sep"></span>
+        <span class="muted"><span data-i18n="octave">Octave</span>: <b id="octaveLabel">4</b></span>
+      </div>
+
+      <div class="piano-wrap" id="piano"></div>
+      <p class="hint" data-i18n="keysHint"></p>
+
+      <div class="grid2">
+        <div class="card">
+          <div class="card-label" data-i18n="detected">Detected chord</div>
+          <div id="chordBig" class="chord-big">—</div>
+          <div class="row small"><span class="muted" data-i18n="notes">Notes</span>: <span id="noteList">—</span></div>
+          <div class="row small" id="altRow" hidden><span class="muted" data-i18n="alternatives">Also</span>: <span id="altList" class="chips"></span></div>
+
+          <label class="field">
+            <span data-i18n="chordName">Chord name</span>
+            <input type="text" id="nameInput" autocomplete="off" spellcheck="false">
+          </label>
+          <div class="btn-row">
+            <button type="button" id="saveBtn" class="btn primary" data-i18n="save">Save to library</button>
+            <button type="button" id="playBtn" class="btn" data-i18n="play">Play</button>
+            <button type="button" id="arpBtn" class="btn" data-i18n="arpeggio">Arpeggio</button>
+            <button type="button" id="pngBtn" class="btn" data-i18n="png">PNG</button>
+            <button type="button" id="pdfBtn" class="btn" data-i18n="pdf">PDF</button>
+          </div>
+
+          <form id="lookupForm" class="lookup">
+            <label class="field grow">
+              <span data-i18n="lookup">Show a chord</span>
+              <input type="text" id="lookupInput" data-i18n-placeholder="lookupPlaceholder" autocomplete="off" spellcheck="false">
+            </label>
+            <button type="submit" class="btn" data-i18n="lookupShow">Show</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <div class="card-label" data-i18n="preview">Chart preview</div>
+          <div id="preview" class="preview"></div>
+          <div class="settings">
+            <label><span data-i18n="diagramStyle">Diagram style</span>
+              <select id="styleSel">
+                <option value="classic" data-i18n="styleClassic">Filled keys</option>
+                <option value="dots" data-i18n="styleDots">Dots</option>
+              </select>
+            </label>
+            <label><span data-i18n="color">Color</span> <input type="color" id="colorSel" value="#d32f2f"></label>
+            <label><span data-i18n="accidentals">Accidentals</span>
+              <select id="accSel">
+                <option value="auto" data-i18n="accAuto">Auto</option>
+                <option value="sharps" data-i18n="accSharps">Sharps</option>
+                <option value="flats" data-i18n="accFlats">Flats</option>
+              </select>
+            </label>
+            <label class="check"><input type="checkbox" id="bassSel" checked> <span data-i18n="bassNote">Add bass note to generated chords</span></label>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ LIBRARY ============ -->
+    <section id="tab-library" class="tab-panel" hidden>
+      <div class="toolbar">
+        <button type="button" id="libPdf" class="btn primary" data-i18n="exportAllPdf">Export all as PDF</button>
+        <button type="button" id="libPng" class="btn" data-i18n="exportAllPng">Export all as PNG</button>
+        <span class="sep"></span>
+        <button type="button" id="libJson" class="btn" data-i18n="exportJson">Backup (JSON)</button>
+        <label class="btn file-btn"><span data-i18n="importJson">Restore (JSON)</span><input type="file" id="libImport" accept="application/json,.json" hidden></label>
+        <span class="sep"></span>
+        <button type="button" id="libClear" class="btn danger" data-i18n="clearLibrary">Delete all</button>
+      </div>
+      <p id="libEmpty" class="empty" data-i18n="libraryEmpty"></p>
+      <div id="libGrid" class="lib-grid"></div>
+    </section>
+
+    <!-- ============ SONG ============ -->
+    <section id="tab-song" class="tab-panel" hidden>
+      <div class="song-layout">
+        <div class="card editor">
+          <label class="field">
+            <span data-i18n="songTitle">Title</span>
+            <input type="text" id="songTitle" autocomplete="off">
+          </label>
+          <label class="field">
+            <span data-i18n="songText">Lyrics &amp; chords</span>
+            <textarea id="songText" rows="18" spellcheck="false" data-i18n-placeholder="songPlaceholder"></textarea>
+          </label>
+          <p class="hint" data-i18n="songHelp"></p>
+          <div class="settings">
+            <label class="check"><input type="checkbox" id="optChart" checked> <span data-i18n="showChart">Chord chart at top</span></label>
+            <label class="check"><input type="checkbox" id="optInline" checked> <span data-i18n="showInline">Diagrams above lyrics</span></label>
+            <label><span data-i18n="inlineSize">Diagram size</span> <input type="range" id="optSize" min="0.3" max="0.8" step="0.05" value="0.45"></label>
+            <span class="transpose"><span data-i18n="transpose">Transpose</span>
+              <button type="button" class="btn sm" id="trDown">−</button>
+              <b id="trVal">0</b>
+              <button type="button" class="btn sm" id="trUp">+</button>
+            </span>
+          </div>
+          <div class="btn-row">
+            <button type="button" id="exampleBtn" class="btn" data-i18n="example">Load example</button>
+            <button type="button" id="songPng" class="btn" data-i18n="png">PNG</button>
+            <button type="button" id="songPdf" class="btn primary" data-i18n="pdf">PDF</button>
+          </div>
+        </div>
+        <div class="card sheet-card">
+          <p class="hint" data-i18n="clickToPlay"></p>
+          <div id="sheet" class="sheet"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer"><span data-i18n="footer"></span></footer>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="js/theory.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/diagram.js"></script>
+  <script src="js/keyboard.js"></script>
+  <script src="js/midi.js"></script>
+  <script src="js/export.js"></script>
+  <script src="js/song.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

@@ -1,1 +1,82 @@
-# piano_chords
+# Piano Chord Studio
+
+A browser-based tool for pianists and keyboard players: an 88-key MIDI keyboard that recognises the chords you play, saves them as chord charts (name + voicing), plays them back, and builds chord sheets for whole songs. It's plain HTML, CSS and JavaScript with no build step and no server.
+
+The interface is available in **English** and **Turkish** (EN / TR switch in the top-right corner).
+
+## Features
+
+### Keyboard
+- A full **88-key keyboard** (A0–C8) on screen.
+- **MIDI input** through the Web MIDI API (Chrome, Edge and Opera). It works with any USB or Bluetooth MIDI keyboard and supports the sustain pedal (CC64).
+- **Mouse / touch**: in *latch* mode each click toggles a key, so you can build a chord one note at a time. With latch off, keys sound only while you hold them.
+- **Computer keyboard**: `A W S E D F T G Y H U J K` play one octave. `Z` / `X` shift down or up an octave.
+- **Chord detection**. Common chords are named correctly, including triads, sus, 6, 7, maj7, m7b5, dim7, add9, 6/9, 9, 11 and 13, altered dominants, and inversions and slash chords (`C/E`, `Am7/G`). Notes are spelled from the chord's root (for example Cdim7 = C Eb Gb Bbb). Other possible names are shown as clickable chips.
+- The last chord stays on screen after you release the keys, so you can still save it. Notes played while the pedal is down are grouped into one chord.
+- **Show a chord**: type a name such as `F#m7b5` or `Bb/D` and it appears on the keyboard.
+- **Sound**: a built-in Web Audio synthesizer (piano, electric piano, organ) with *Play* and *Arpeggio* buttons.
+
+### Chord charts
+- Each chord is drawn as a small keyboard with the pressed keys highlighted. The chord name is at the top left, the notes are listed at the top right, and the note names are written under the keys.
+- Two diagram styles: **filled keys** (classic) or **dots**. The highlight colour can be changed.
+- Accidentals can be set to automatic, sharps (♯) or flats (♭).
+- Any chord can be exported as a **PNG** image or a **PDF**.
+
+### Chord library
+- **Save** any chord with its exact voicing (the keys you pressed) and a name. You can edit the name before saving.
+- Play, rename or delete saved chords, or send one back to the keyboard.
+- Export the whole library as a multi-page **PDF** or a single **PNG** sheet.
+- Back up or restore the library as JSON. It is also saved automatically in the browser (localStorage).
+
+### Song chart
+Paste lyrics with chords in either of two formats:
+
+**ChordPro (inline)**
+```
+{title: Amazing Grace}
+[Verse 1]
+A[G]mazing [G7]grace, how [C]sweet the [G]sound
+```
+
+**Chords above lyrics**
+```
+      G          G7        C        G
+'Twas grace that taught my heart to fear,
+```
+
+The app produces:
+- a **chord chart** at the top listing every chord in the song, and
+- the lyrics with each **chord diagram placed exactly where the chord changes** (either can be switched off).
+
+Section headings (`[Chorus]`, `Verse 2:`, `{comment: Bridge}`) are recognised. The song can be **transposed**. If a chord is in your library, the sheet uses your saved voicing; otherwise it builds a standard voicing (bass note plus a close-position right-hand chord). The sheet exports to **PNG** or to a paginated A4 **PDF**.
+
+## Getting started
+
+1. Download or clone this repository.
+2. Open `index.html` in Chrome or Edge. Double-clicking the file is enough.
+3. Connect a MIDI keyboard and allow MIDI access when the browser asks.
+
+To host it online, enable **GitHub Pages** for the repository (Settings → Pages → deploy from branch, root folder) and open the published URL.
+
+> Web MIDI is not available in Firefox or Safari. The mouse, touch and computer-keyboard inputs work in every modern browser.
+
+## Project structure
+
+```
+index.html          Page layout
+css/style.css       Styles
+js/theory.js        Note spelling, chord templates, detection, parsing, voicings
+js/audio.js         Web Audio synthesizer
+js/keyboard.js      Interactive 88-key SVG keyboard
+js/midi.js          Web MIDI input
+js/diagram.js       Chord chart (SVG) renderer
+js/export.js        PNG / PDF export
+js/song.js          Song parser, on-screen sheet and export layout
+js/i18n.js          English / Turkish UI strings
+js/app.js           Application wiring and state
+vendor/             jsPDF 2.5.2 (MIT licence), bundled so PDF export works offline
+```
+
+## Licenses
+
+jsPDF is © James Hall and yWorks GmbH and is distributed under the MIT licence (see `vendor/jspdf.LICENSE`).
